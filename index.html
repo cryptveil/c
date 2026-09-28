@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tactical Strike</title>
+<style>
+  :root {
+    --ink: #0c1620; --panel: #101d29; --panel2: #16273570; --line: #2a3f4d;
+    --amber: #e0ad69; --teal: #63e6d2; --red: #ff5265; --text: #dfe9ee; --dim: #7f97a3;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+  h1, h2 { font-weight: 600; margin: 0 0 6px; }
+  button { font-family: inherit; cursor: pointer; }
+
+  .screen { display: none; position: fixed; inset: 0; }
+  .screen.active { display: flex; }
+
+  /* ---------- Main menu ---------- */
+  #screenMain { flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: radial-gradient(circle at 50% 20%, #16283460, var(--ink) 70%); }
+  .brand { text-align: center; }
+  .brand .mark { font-size: 44px; letter-spacing: 2px; color: var(--text); }
+  .brand .mark span { color: var(--amber); }
+  .brand .sub { color: var(--dim); margin-top: 4px; }
+  .menuCol { display: flex; flex-direction: column; gap: 10px; width: 300px; }
+  .btn { background: var(--panel); border: 1px solid var(--line); color: var(--text); padding: 13px 18px; border-radius: 4px; font-size: 15px; text-align: left; transition: border-color .15s, background .15s; }
+  .btn:hover { border-color: var(--amber); background: #182a38; }
+  .btn.primary { background: var(--amber); color: #1a1207; border-color: var(--amber); font-weight: 600; }
+  .btn.primary:hover { background: #eec085; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .rowBtns { display: flex; gap: 10px; }
+  .menuFoot { position: absolute; bottom: 14px; right: 18px; }
+  .iconBtn { background: none; border: 1px solid var(--line); color: var(--dim); padding: 8px 14px; border-radius: 4px; }
+
+  /* ---------- Queue / Lobby ---------- */
+  #screenQueue, #screenLobby, #screenSettings { flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: var(--ink); }
+  .pulse { width: 14px; height: 14px; border-radius: 50%; background: var(--teal); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }
+  .lobbyBox { background: var(--panel); border: 1px solid var(--line); padding: 22px 28px; border-radius: 6px; width: 340px; }
+  .lobbyBox input { width: 100%; padding: 10px; margin: 8px 0; background: #0c1a24; border: 1px solid var(--line); color: var(--text); border-radius: 4px; }
+  #lobbyMembers div { padding: 4px 0; color: var(--dim); }
+  #lobbyCodeDisplay { font-size: 28px; letter-spacing: 4px; color: var(--amber); }
+
+  /* ---------- Char / map select ---------- */
+  #screenCharSelect { flex-direction: column; padding: 30px 40px; gap: 18px; overflow-y: auto; }
+  .sectionTitle { color: var(--dim); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; margin-top: 10px; }
+  #mapGrid, #charGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 10px; }
+  .mapCard, .charCard { background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 12px; cursor: pointer; }
+  .mapCard:hover, .charCard:hover { border-color: var(--dim); }
+  .mapCard.selected, .charCard.selected { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber) inset; }
+  .mapName { font-weight: 600; margin-bottom: 4px; }
+  .tag { font-size: 10px; padding: 2px 6px; border-radius: 3px; background: var(--amber); color: #1a1207; margin-left: 6px; }
+  .tag.proto { background: #3a4b56; color: var(--dim); }
+  .mapDesc { color: var(--dim); font-size: 12.5px; line-height: 1.4; }
+  .charCard { border-left: 3px solid var(--accent, var(--line)); }
+  .charName { font-weight: 700; }
+  .charRole { color: var(--accent, var(--teal)); font-size: 12px; margin: 2px 0; }
+  .charTag { color: var(--dim); font-size: 12px; }
+  .charSelectFoot { display: flex; justify-content: space-between; margin-top: 10px; }
+
+  /* ---------- Game screen ---------- */
+  #screenHUD { position: fixed; inset: 0; }
+  #canvasHost { position: absolute; inset: 0; }
+  #canvasHost canvas { display: block; }
+
+  #crosshair { --spread: 6px; position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+  #crosshair i { position: absolute; background: #fff; opacity: .85; }
+  #crosshair i:nth-child(1) { width: 2px; height: 8px; left: calc(-1px - var(--spread)); top: -12px; }
+  #crosshair i:nth-child(2) { width: 2px; height: 8px; left: calc(-1px - var(--spread)); top: 4px; }
+  #crosshair i:nth-child(3) { height: 2px; width: 8px; top: calc(-1px - var(--spread)); left: -12px; }
+  #crosshair i:nth-child(4) { height: 2px; width: 8px; top: calc(-1px - var(--spread)); left: 4px; }
+
+  .hudTop { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 18px; padding: 10px; pointer-events: none; font-family: Consolas, monospace; }
+  .hudTop .score { font-size: 20px; padding: 4px 12px; background: #0009; border-radius: 4px; }
+  #scoreA { color: var(--amber); } #scoreB { color: var(--red); }
+  #roundTimer { font-size: 22px; background: #0009; padding: 4px 14px; border-radius: 4px; }
+  #roundPhase, #roundNum { font-size: 11px; color: var(--dim); text-align: center; }
+
+  .hudBottomLeft { position: absolute; left: 14px; bottom: 14px; font-family: Consolas, monospace; pointer-events: none; }
+  #hpBarTrack { width: 200px; height: 10px; background: #0007; border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+  #hpBar { height: 100%; background: linear-gradient(90deg, var(--red), var(--amber)); width: 100%; }
+  .statLine { display: flex; gap: 14px; font-size: 13px; }
+  #sideLabel.atk { color: var(--red); } #sideLabel.def { color: var(--teal); }
+
+  .hudBottomRight { position: absolute; right: 14px; bottom: 14px; text-align: right; font-family: Consolas, monospace; pointer-events: none; }
+  #weaponName { font-size: 14px; color: var(--dim); }
+  #ammoVal { font-size: 26px; }
+
+  #abilityBar { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; pointer-events: none; }
+  .abilitySlot, #ultSlot { width: 46px; height: 46px; background: #0009; border: 1px solid var(--line); border-radius: 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: .55; position: relative; }
+  .abilitySlot.ready, #ultSlot.ready { opacity: 1; border-color: var(--teal); }
+  .abilitySlot .key, #ultSlot .key { font-size: 11px; color: var(--dim); }
+  .abilitySlot .chargeCount { font-size: 15px; }
+  .abilitySlot .cd { position: absolute; bottom: 2px; font-size: 9px; color: var(--dim); }
+  #ultSlot { border-color: var(--amber); }
+  #ultSlot .pct { font-size: 12px; }
+
+  #minimap { position: absolute; top: 60px; right: 14px; width: 150px; height: 150px; border: 1px solid var(--line); border-radius: 4px; opacity: .92; }
+
+  #blindOverlay, #damageFlash { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .1s; }
+  #blindOverlay { background: #fff; }
+  #damageFlash { background: radial-gradient(circle, transparent 40%, #ff2c3b55); }
+
+  #buyMenu { display: none; position: absolute; left: 14px; top: 90px; width: 240px; background: #0c1a24ee; border: 1px solid var(--line); border-radius: 6px; padding: 12px; }
+  #buyMenu.active { display: block; }
+  .buyRow { display: flex; justify-content: space-between; padding: 8px 6px; border-bottom: 1px solid #1c2c37; cursor: pointer; font-size: 13px; }
+  .buyRow:hover { background: #16283a; }
+  .buyRow.owned { color: var(--dim); cursor: default; }
+  .buyRow.unaffordable { color: #6a3f44; }
+  #buyCredits { color: var(--amber); font-weight: 600; margin-top: 8px; display: block; }
+
+  #scoreboard { display: none; position: absolute; inset: 60px 80px; background: #0b1620ee; border: 1px solid var(--line); border-radius: 8px; padding: 16px; font-family: Consolas, monospace; font-size: 13px; }
+  #scoreboard.show { display: block; }
+  #scoreboardBody { display: grid; grid-template-columns: 2fr 1.2fr .6fr .6fr .8fr; row-gap: 6px; }
+  .sbRow { display: contents; }
+  .sbRow > span { padding: 3px 6px; }
+  .sbRow.team0 > span:first-child { border-left: 3px solid var(--amber); }
+  .sbRow.team1 > span:first-child { border-left: 3px solid var(--red); }
+  .sbRow.me { background: #16283a; }
+
+  #roundBanner { position: absolute; top: 90px; left: 50%; transform: translate(-50%,-10px); font-size: 20px; letter-spacing: 1px; background: #0009; padding: 8px 20px; border-radius: 4px; opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; }
+  #roundBanner.show { opacity: 1; transform: translate(-50%,0); }
+
+  #pauseOverlay { display: none; position: absolute; inset: 0; background: #000c; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+  #pauseOverlay.show { display: flex; }
+
+  #screenResult { flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: var(--ink); }
+  #resultTitle { font-size: 46px; letter-spacing: 2px; }
+  #resultTitle.win { color: var(--teal); }
+  #resultTitle.lose { color: var(--red); }
+  #resultScore { font-size: 22px; color: var(--dim); }
+
+  .settingsRow { display: flex; justify-content: space-between; align-items: center; width: 320px; margin: 10px 0; }
+  .settingsRow input[type=range] { width: 160px; }
+
+  /* ---------- Procedural animation / combat feedback ---------- */
+  #animFx { position:absolute; inset:0; pointer-events:none; z-index:30; overflow:hidden; }
+  .hitMarker { position:absolute; left:50%; top:50%; width:34px; height:34px; transform:translate(-50%,-50%); opacity:0; }
+  .hitMarker i { position:absolute; width:2px; height:11px; left:16px; top:11px; background:#fff; transform-origin:1px 5px; }
+  .hitMarker i:nth-child(1){transform:rotate(45deg)} .hitMarker i:nth-child(2){transform:rotate(135deg)}
+  .hitMarker i:nth-child(3){transform:rotate(225deg)} .hitMarker i:nth-child(4){transform:rotate(315deg)}
+  .hitMarker.enemy i { background:#ff5265; }
+  .hitMarker.pop { animation:hitPop .22s ease-out; }
+  @keyframes hitPop { 0%{opacity:0;transform:translate(-50%,-50%) scale(.5)} 20%{opacity:1;transform:translate(-50%,-50%) scale(1.2)} 100%{opacity:0;transform:translate(-50%,-50%) scale(1)} }
+  .killFeed { position:absolute; top:18%; right:18px; display:flex; flex-direction:column; gap:5px; align-items:flex-end; }
+  .killRow { background:#07111bcc; border:1px solid #35505e; border-right:3px solid var(--red); padding:6px 10px; font:700 12px Consolas,monospace; letter-spacing:.5px; animation:feedIn .2s ease-out; }
+  @keyframes feedIn { from{transform:translateX(25px);opacity:0} to{transform:translateX(0);opacity:1} }
+  .actionProgress { position:absolute; left:50%; bottom:82px; width:220px; transform:translateX(-50%) translateY(12px); opacity:0; transition:.15s; text-align:center; }
+  .actionProgress.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .actionProgress .label { font:700 11px Consolas,monospace; letter-spacing:1.5px; margin-bottom:5px; text-shadow:0 1px 3px #000; }
+  .actionProgress .track { height:5px; background:#000b; border:1px solid #49606c; border-radius:3px; overflow:hidden; }
+  .actionProgress .fill { height:100%; width:0; background:var(--teal); }
+  .roundFlash { position:absolute; left:50%; top:25%; transform:translate(-50%,-20px) scale(.9); opacity:0; font-size:25px; font-weight:800; letter-spacing:3px; text-shadow:0 2px 18px #000; }
+  .roundFlash.show { animation:roundFlash 1.8s ease-out forwards; }
+  @keyframes roundFlash { 0%{opacity:0;transform:translate(-50%,-20px) scale(.9)} 12%{opacity:1;transform:translate(-50%,0) scale(1)} 72%{opacity:1} 100%{opacity:0;transform:translate(-50%,8px) scale(1.03)} }
+  .controlsHint { color:var(--dim); font:11px Consolas,monospace; text-align:center; line-height:1.7; }
+  @media (prefers-reduced-motion: reduce) {
+    .hitMarker.pop,.killRow,.roundFlash { animation:none; }
+    .pulse { animation:none; }
+  }
+
+</style>
+</head>
+<body>
+
+  <!-- MAIN MENU -->
+  <div id="screenMain" class="screen active">
+    <div class="brand">
+      <div class="mark">TACTICAL <span>STRIKE</span></div>
+      <div class="sub">Original 5v5 round-based tactical shooter — browser, Three.js, Socket.IO</div>
+    </div>
+    <div class="menuCol">
+      <input id="playerNameInput" class="btn" placeholder="Callsign (optional)" style="text-align:left" />
+      <button id="btnFindMatch" class="btn primary">FIND ONLINE MATCH (5v5 queue)</button>
+      <div class="rowBtns">
+        <button id="btnCreateLobby" class="btn">CREATE PRIVATE LOBBY</button>
+      </div>
+      <div class="rowBtns">
+        <input id="lobbyCodeInput" class="btn" placeholder="Lobby code" style="flex:1" />
+        <button id="btnJoinLobby" class="btn" style="flex:1">JOIN LOBBY</button>
+      </div>
+      <div style="height:6px"></div>
+      <button id="btnPractice" class="btn">PRACTICE vs BOTS</button>
+      <button id="btnUnranked" class="btn">UNRANKED vs BOTS</button>
+      <button id="btnCompetitiveLocal" class="btn">COMPETITIVE vs BOTS (local rounds/economy)</button>
+    </div>
+    <div class="menuFoot"><button id="btnSettings" class="iconBtn">Settings</button></div>
+  </div>
+
+  <!-- QUEUE -->
+  <div id="screenQueue" class="screen">
+    <div class="pulse"></div>
+    <h2>Searching for match…</h2>
+    <div style="color:var(--dim)">Players in queue: <span id="queueCount">1</span> / 10</div>
+    <button id="btnCancelQueue" class="btn">CANCEL</button>
+  </div>
+
+  <!-- LOBBY -->
+  <div id="screenLobby" class="screen">
+    <div class="lobbyBox">
+      <h2>Private Lobby</h2>
+      <div style="color:var(--dim); font-size:13px">Share this code:</div>
+      <div id="lobbyCodeDisplay">-----</div>
+      <div id="lobbyMembers" style="margin-top:10px"></div>
+      <button id="btnStartLobby" class="btn primary" style="width:100%; margin-top:14px">START MATCH</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="screenSettings" class="screen">
+    <h2>Settings</h2>
+    <div class="settingsRow"><span>Render quality</span><input id="qualityRange" type="range" min="0.4" max="1" step="0.1" value="1" /></div>
+    <div class="settingsRow"><span>Mouse sensitivity</span><input id="sensRange" type="range" min="0.3" max="2.5" step="0.1" value="1" /></div>
+    <button id="btnSettingsBack" class="btn primary">BACK</button>
+  </div>
+
+  <!-- CHARACTER / MAP SELECT -->
+  <div id="screenCharSelect" class="screen">
+    <div id="mapSection">
+      <div class="sectionTitle">Map</div>
+      <div id="mapGrid"></div>
+    </div>
+    <div class="sectionTitle">Agent</div>
+    <div id="charGrid"></div>
+    <div class="charSelectFoot">
+      <button id="btnCharBack" class="btn">BACK</button>
+      <button id="btnEnterMatch" class="btn primary" disabled>ENTER MATCH</button>
+    </div>
+  </div>
+
+  <!-- IN-GAME HUD -->
+  <div id="screenHUD" class="screen">
+    <div id="canvasHost"></div>
+    <div id="crosshair"><i></i><i></i><i></i><i></i></div>
+    <div id="blindOverlay"></div>
+    <div id="damageFlash"></div>
+
+    <div class="hudTop">
+      <span class="score" id="scoreA">0</span>
+      <div style="text-align:center">
+        <div id="roundTimer">0:00</div>
+        <div id="roundPhase">BUY</div>
+        <div id="roundNum">ROUND 1</div>
+      </div>
+      <span class="score" id="scoreB">0</span>
+    </div>
+
+    <div class="hudBottomLeft">
+      <div id="hpBarTrack"><div id="hpBar"></div></div>
+      <div class="statLine">
+        <span>HP <b id="hpVal">100</b></span>
+        <span>ARMOR <b id="armorVal">0</b></span>
+        <span id="sideLabel" class="atk">ATTACKING</span>
+      </div>
+      <div class="statLine"><span>CREDITS <b id="creditsVal">800</b></span></div>
+    </div>
+
+    <div class="hudBottomRight">
+      <div id="weaponName">SD-1 SIDEARM</div>
+      <div id="ammoVal">12/36</div>
+    </div>
+
+    <div id="abilityBar">
+      <div class="abilitySlot"><div class="key">Q</div><div class="chargeCount">0</div></div>
+      <div class="abilitySlot"><div class="key">C</div><div class="chargeCount">0</div></div>
+      <div class="abilitySlot"><div class="key">F</div><div class="chargeCount">0</div></div>
+      <div class="abilitySlot"><div class="key">V</div><div class="chargeCount">0</div></div>
+      <div id="ultSlot"><div class="key">X</div><div class="pct">0%</div></div>
+    </div>
+
+    <canvas id="minimap" width="150" height="150"></canvas>
+
+    <div id="buyMenu">
+      <div class="sectionTitle" style="margin-top:0">Buy — hold E on nothing, click item</div>
+      <div id="buyList"></div>
+      <span id="buyCredits">800 CR</span>
+    </div>
+
+    <div id="scoreboard">
+      <div class="sectionTitle" style="margin-top:0">Tab — Scoreboard</div>
+      <div id="scoreboardBody"></div>
+    </div>
+
+    <div id="roundBanner"></div>
+    <div class="controlsHint" style="position:absolute;left:50%;top:58px;transform:translateX(-50%);pointer-events:none">WASD MOVE · SHIFT WALK · CTRL CROUCH · SPACE JUMP · R RELOAD · I INSPECT · 1/2 WEAPON · Q/C/F/V ABILITIES · X ULT · TAB SCOREBOARD</div>
+
+    <div id="pauseOverlay">
+      <h2>PAUSED</h2>
+      <button id="btnResume" class="btn primary">RESUME</button>
+      <button id="btnQuitToMenu" class="btn">QUIT TO MENU</button>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="screenResult" class="screen">
+    <div id="resultTitle">VICTORY</div>
+    <div id="resultScore">13 - 7</div>
+    <button id="btnResultMenu" class="btn primary">BACK TO MENU</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

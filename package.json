@@ -1,0 +1,15 @@
+{
+  "name": "tactical-strike",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Original browser tactical FPS: Three.js client, Socket.IO server-authoritative 5v5 multiplayer.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tools/verify-map.mjs && node tools/verify-round-engine.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}
